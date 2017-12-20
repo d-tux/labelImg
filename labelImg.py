@@ -190,6 +190,7 @@ class MainWindow(QMainWindow, WindowMixin):
         self.canvas.scrollRequest.connect(self.scrollRequest)
 
         self.canvas.newShape.connect(self.newShape)
+        self.canvas.cancelShape.connect(self.cancelShape)
         self.canvas.shapeMoved.connect(self.setDirty)
         self.canvas.selectionChanged.connect(self.shapeSelectionChanged)
         self.canvas.drawingPolygon.connect(self.toggleDrawingSensitive)
@@ -798,6 +799,11 @@ class MainWindow(QMainWindow, WindowMixin):
             # self.canvas.undoLastLine()
             self.canvas.resetAllLines()
 
+    def cancelShape(self):
+        self.canvas.setEditing(True)
+        self.canvas.restoreCursor()
+        self.actions.create.setEnabled(True)
+
     def scrollRequest(self, delta, orientation):
         units = - delta / (8 * 15)
         bar = self.scrollBars[orientation]
@@ -1167,6 +1173,12 @@ class MainWindow(QMainWindow, WindowMixin):
 
         if filename:
             self.loadFile(filename)
+            # If the image has no shapes, start creating one automatically.
+            if self.autoSaving.isChecked():
+                if len(self.canvas.shapes) == 0:
+                    self.createShape()
+                else:
+                    self.canvas.cancelDrawing()
 
     def openFile(self, _value=False):
         if not self.mayContinue():

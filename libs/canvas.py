@@ -25,6 +25,7 @@ class Canvas(QWidget):
     zoomRequest = pyqtSignal(int)
     scrollRequest = pyqtSignal(int, int)
     newShape = pyqtSignal()
+    cancelShape = pyqtSignal()
     selectionChanged = pyqtSignal(bool)
     shapeMoved = pyqtSignal()
     drawingPolygon = pyqtSignal(bool)
@@ -91,6 +92,13 @@ class Canvas(QWidget):
             self.deSelectShape()
         self.prevPoint = QPointF()
         self.repaint()
+
+    def cancelDrawing(self):
+        if self.drawing():
+            self.mode = self.EDIT
+            self.prevPoint = QPointF()
+            self.repaint()
+            self.cancelShape.emit()
 
     def unHighlight(self):
         if self.hShape:
@@ -561,11 +569,13 @@ class Canvas(QWidget):
 
     def keyPressEvent(self, ev):
         key = ev.key()
-        if key == Qt.Key_Escape and self.current:
-            print('ESC press')
-            self.current = None
-            self.drawingPolygon.emit(False)
-            self.update()
+        if key == Qt.Key_Escape:
+            if self.current:
+                self.current = None
+                self.drawingPolygon.emit(False)
+                self.update()
+            elif self.drawing():
+                self.cancelDrawing()
         elif key == Qt.Key_Return and self.canCloseShape():
             self.finalise()
         elif key == Qt.Key_Left and self.selectedShape:
