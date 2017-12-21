@@ -347,9 +347,12 @@ class MainWindow(QMainWindow, WindowMixin):
             file=self.menu('&File'),
             edit=self.menu('&Edit'),
             view=self.menu('&View'),
+            labels=self.menu('&Label'),
             help=self.menu('&Help'),
             recentFiles=QMenu('Open &Recent'),
             labelList=labelMenu)
+
+        self.updateLabelActions()
 
         # Auto saving : Enable auto saving if pressing next
         self.autoSaving = QAction("Auto Saving", self)
@@ -460,6 +463,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
     def noShapes(self):
         return not self.itemsToShapes
+
+    def selectLabel(self, label):
+        self.lastLabel = label
+        self.defaultLabelTextLine.setText(label)
+        self.useDefaultLabelCheckbox.setChecked(True)
 
     def toggleAdvancedMode(self, value=True):
         self._beginner = not value
@@ -795,6 +803,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
             if text not in self.labelHist:
                 self.labelHist.append(text)
+                self.updateLabelActions()
         else:
             # self.canvas.undoLastLine()
             self.canvas.resetAllLines()
@@ -1306,12 +1315,12 @@ class MainWindow(QMainWindow, WindowMixin):
     def loadPredefinedClasses(self, predefClassesFile):
         if os.path.exists(predefClassesFile) is True:
             with codecs.open(predefClassesFile, 'r', 'utf8') as f:
-                for line in f:
-                    line = line.strip()
-                    if self.labelHist is None:
-                        self.labelHist = [line]
-                    else:
-                        self.labelHist.append(line)
+                self.labelHist = [line.strip() for line in f]
+
+    def updateLabelActions(self):
+        self.menus.labels.clear()
+        actions = [newAction(self, "&"+self.labelHist[i], partial(self.selectLabel, self.labelHist[i]), "Ctrl+%d" % i) for i in range(len(self.labelHist[0:10]))]
+        addActions(self.menus.labels, actions)
 
     def loadPascalXMLByFilename(self, xmlPath):
         if self.filePath is None:
