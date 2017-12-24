@@ -621,7 +621,8 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        currIndex = self.mImgList.index(ustr(item.text()))
+        filePath = item.data(Qt.ToolTipRole)
+        currIndex = self.mImgList.index(ustr(filePath))
         if currIndex < len(self.mImgList):
             filename = self.mImgList[currIndex]
             if filename:
@@ -894,6 +895,14 @@ class MainWindow(QMainWindow, WindowMixin):
         for item, shape in self.itemsToShapes.items():
             item.setCheckState(Qt.Checked if value else Qt.Unchecked)
 
+    def selectFile(self, filePath):
+        if filePath is None or not self.fileListWidget.count():
+            return
+
+        index = self.mImgList.index(filePath)
+        item = self.fileListWidget.item(index)
+        item.setSelected(True)
+
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
         self.resetState()
@@ -904,10 +913,7 @@ class MainWindow(QMainWindow, WindowMixin):
         unicodeFilePath = ustr(filePath)
         # Tzutalin 20160906 : Add file list and dock to move faster
         # Highlight the file item
-        if unicodeFilePath and self.fileListWidget.count() > 0:
-            index = self.mImgList.index(unicodeFilePath)
-            fileWidgetItem = self.fileListWidget.item(index)
-            fileWidgetItem.setSelected(True)
+        self.selectFile(unicodeFilePath)
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
             if LabelFile.isLabelFile(unicodeFilePath):
@@ -1114,6 +1120,7 @@ class MainWindow(QMainWindow, WindowMixin):
         for imgPath in self.mImgList:
             fi = QFileInfo(imgPath)
             item = QListWidgetItem(fi.fileName())
+            item.setData(Qt.ToolTipRole, imgPath)
             self.fileListWidget.addItem(item)
 
     def verifyImg(self, _value=False):
