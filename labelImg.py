@@ -223,6 +223,8 @@ class MainWindow(QMainWindow, WindowMixin):
         openNextImg = action('&Next Image', self.openNextImg,
                              'd', 'next', u'Open Next')
 
+        openNextUnlabeledImg = action('Next &unlabeled image', self.openNextUnlabeledImg, 'Shift+d', 'next', u'Open next unlabeled')
+
         openPrevImg = action('&Prev Image', self.openPrevImg,
                              'a', 'prev', u'Open Prev')
 
@@ -386,7 +388,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
         self.tools = self.toolbar('Tools')
         self.actions.beginner = (
-            open, opendir, changeSavedir, openNextImg, openPrevImg, verify, save, None, create, copy, delete, None,
+            open, opendir, changeSavedir, openNextImg, openNextUnlabeledImg, openPrevImg, verify, save, None, create, copy, delete, None,
             zoomIn, zoom, zoomOut, fitWindow, fitWidth)
 
         self.actions.advanced = (
@@ -903,6 +905,25 @@ class MainWindow(QMainWindow, WindowMixin):
         item = self.fileListWidget.item(index)
         item.setSelected(True)
 
+    def getLabelFileName(self, path=None):
+        if path is None:
+            path = self.filePath
+        if self.usingPascalVocFormat is True:
+            if self.defaultSaveDir is not None:
+                basename = os.path.basename(
+                    os.path.splitext(path)[0]) + XML_EXT
+                filename = os.path.join(self.defaultSaveDir, basename)
+            else:
+                filename = os.path.splitext(path)[0] + XML_EXT
+
+            if os.path.isfile(filename):
+                return filename
+            else:
+                return None
+
+        else:
+            return None
+
     def loadFile(self, filePath=None):
         """Load the specified file, or the last opened file if None."""
         self.resetState()
@@ -955,16 +976,9 @@ class MainWindow(QMainWindow, WindowMixin):
             self.toggleActions(True)
 
             # Label xml file and show bound box according to its filename
-            if self.usingPascalVocFormat is True:
-                if self.defaultSaveDir is not None:
-                    basename = os.path.basename(
-                        os.path.splitext(self.filePath)[0]) + XML_EXT
-                    xmlPath = os.path.join(self.defaultSaveDir, basename)
-                    self.loadPascalXMLByFilename(xmlPath)
-                else:
-                    xmlPath = os.path.splitext(filePath)[0] + XML_EXT
-                    if os.path.isfile(xmlPath):
-                        self.loadPascalXMLByFilename(xmlPath)
+            xmlPath = self.getLabelFileName()
+            if xmlPath is not None:
+                self.loadPascalXMLByFilename(xmlPath)
 
             self.setWindowTitle(__appname__ + ' ' + filePath)
 
@@ -1163,7 +1177,10 @@ class MainWindow(QMainWindow, WindowMixin):
             if filename:
                 self.loadFile(filename)
 
-    def openNextImg(self, _value=False):
+    def openNextUnlabeledImg(self):
+        return self.openNextImg(skipLabeledImages=True)
+
+    def openNextImg(self, _value=False, skipLabeledImages=False):
         # Proceding prev image without dialog if having any label
         if self.autoSaving.isChecked():
             if self.defaultSaveDir is not None:
@@ -1180,12 +1197,24 @@ class MainWindow(QMainWindow, WindowMixin):
             return
 
         filename = None
+
         if self.filePath is None:
             filename = self.mImgList[0]
         else:
             currIndex = self.mImgList.index(self.filePath)
             if currIndex + 1 < len(self.mImgList):
                 filename = self.mImgList[currIndex + 1]
+
+        if skipLabeledImages:
+            if currIndex is None:
+                currIndex = 0
+            while filename is not None and self.getLabelFileName(filename):
+                currIndex += 1
+                if currIndex < len(self.mImgList):
+                    filename = self.mImgList[currIndex]
+                else:
+                    filename = None
+
 
         if filename:
             self.loadFile(filename)
