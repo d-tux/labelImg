@@ -974,6 +974,7 @@ class MainWindow(QMainWindow, WindowMixin):
             index = self.mImgList.index(unicodeFilePath)
             fileWidgetItem = self.fileListWidget.item(index)
             fileWidgetItem.setSelected(True)
+            self.fileListWidget.scrollToItem(fileWidgetItem)
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
             if LabelFile.isLabelFile(unicodeFilePath):
