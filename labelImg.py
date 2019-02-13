@@ -324,6 +324,11 @@ class MainWindow(QMainWindow, WindowMixin):
         self.drawSquaresOption.setChecked(settings.get(SETTING_DRAW_SQUARE, False))
         self.drawSquaresOption.triggered.connect(self.toogleDrawSquare)
 
+        self.displayRelativePath = QAction('Show relative file names', self)
+        self.displayRelativePath.setCheckable(True)
+        self.displayRelativePath.setChecked(settings.get(SETTING_RELATIVE_PATH, False))
+        self.displayRelativePath.triggered.connect(self.toggleRelativePath)
+
         # Store actions for further handling.
         self.actions = struct(save=save, save_format=save_format, saveAs=saveAs, open=open, close=close, resetAll = resetAll,
                               lineColor=color1, create=create, delete=delete, edit=edit, copy=copy,
@@ -376,6 +381,7 @@ class MainWindow(QMainWindow, WindowMixin):
             self.autoSaving,
             self.singleClassMode,
             self.displayLabelOption,
+            self.displayRelativePath,
             labels, advancedMode, None,
             hideAll, showAll, None,
             zoomIn, zoomOut, zoomOrg, None,
@@ -521,6 +527,16 @@ class MainWindow(QMainWindow, WindowMixin):
             self.dock.setFeatures(self.dock.features() | self.dockFeatures)
         else:
             self.dock.setFeatures(self.dock.features() ^ self.dockFeatures)
+
+    def toggleRelativePath(self, value=False):
+        if value:
+            for (k, item) in enumerate(self.mImgList):
+                v = item['listItem']
+                v.setText(os.path.relpath(item['path'], self.dirname))
+        else:
+            for (k, item) in enumerate(self.mImgList):
+                v = item['listItem']
+                v.setText(item['path'])
 
     def populateModeActions(self):
         if self.beginner():
@@ -675,11 +691,7 @@ class MainWindow(QMainWindow, WindowMixin):
 
     # Tzutalin 20160906 : Add file list and dock to move faster
     def fileitemDoubleClicked(self, item=None):
-        currIndex = self.mImgList.index(ustr(item.text()))
-        if currIndex < len(self.mImgList):
-            filename = self.mImgList[currIndex]
-            if filename:
-                self.loadFile(filename)
+        self.loadFile(item.data(Qt.WhatsThisRole))
 
     # Add chris
     def btnstate(self, item= None):
@@ -971,10 +983,9 @@ class MainWindow(QMainWindow, WindowMixin):
         # Tzutalin 20160906 : Add file list and dock to move faster
         # Highlight the file item
         if unicodeFilePath and self.fileListWidget.count() > 0:
-            index = self.mImgList.index(unicodeFilePath)
-            fileWidgetItem = self.fileListWidget.item(index)
-            fileWidgetItem.setSelected(True)
-            self.fileListWidget.scrollToItem(fileWidgetItem)
+            (index, item) = self.imgListItem(unicodeFilePath)
+            item['listItem'].setSelected(True)
+            self.fileListWidget.scrollToItem(item['listItem'])
 
         if unicodeFilePath and os.path.exists(unicodeFilePath):
             if LabelFile.isLabelFile(unicodeFilePath):
@@ -1100,6 +1111,7 @@ class MainWindow(QMainWindow, WindowMixin):
         settings[SETTING_LINE_COLOR] = self.lineColor
         settings[SETTING_FILL_COLOR] = self.fillColor
         settings[SETTING_RECENT_FILES] = self.recentFiles
+        settings[SETTING_RELATIVE_PATH] = self.displayRelativePath.isChecked()
         settings[SETTING_ADVANCE_MODE] = not self._beginner
         if self.defaultSaveDir and os.path.exists(self.defaultSaveDir):
             settings[SETTING_SAVE_DIR] = ustr(self.defaultSaveDir)
@@ -1130,8 +1142,8 @@ class MainWindow(QMainWindow, WindowMixin):
                 if file.lower().endswith(tuple(extensions)):
                     relativePath = os.path.join(root, file)
                     path = ustr(os.path.abspath(relativePath))
-                    images.append(path)
-        natural_sort(images, key=lambda x: x.lower())
+                    images.append({'path': path, 'relative_path': os.path.relpath(path, folderPath)})
+        natural_sort(images, key=lambda x: x['relative_path'].lower())
         return images
 
     def changeSavedirDialog(self, _value=False):
@@ -1193,7 +1205,13 @@ class MainWindow(QMainWindow, WindowMixin):
         self.mImgList = self.scanAllImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
-            item = QListWidgetItem(imgPath)
+            if self.displayRelativePath.isChecked():
+                text = imgPath['relative_path']
+            else:
+                text = imgPath['path']
+            item = QListWidgetItem(text)
+            item.setData(Qt.WhatsThisRole, imgPath)
+            imgPath['listItem'] = item
             self.fileListWidget.addItem(item)
 
     def verifyImg(self, _value=False):
@@ -1233,11 +1251,18 @@ class MainWindow(QMainWindow, WindowMixin):
         if self.filePath is None:
             return
 
-        currIndex = self.mImgList.index(self.filePath)
+        (currIndex, _) = self.imgListItem(self.filePath)
         if currIndex - 1 >= 0:
             filename = self.mImgList[currIndex - 1]
             if filename:
-                self.loadFile(filename)
+                self.loadFile(filename['path'])
+
+    def imgListItem(self, path):
+        for k, v in enumerate(self.mImgList):
+            if v['path'] == path:
+                return (k, v)
+
+        return None
 
     def openNextImg(self, _value=False):
         # Proceding prev image without dialog if having any label
@@ -1257,11 +1282,11 @@ class MainWindow(QMainWindow, WindowMixin):
 
         filename = None
         if self.filePath is None:
-            filename = self.mImgList[0]
+            filename = self.mImgList[0]['path']
         else:
-            currIndex = self.mImgList.index(self.filePath)
+            (currIndex, _) = self.imgListItem(self.filePath)
             if currIndex + 1 < len(self.mImgList):
-                filename = self.mImgList[currIndex + 1]
+                filename = self.mImgList[currIndex + 1]['path']
 
         if filename:
             self.loadFile(filename)
